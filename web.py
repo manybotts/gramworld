@@ -1,17 +1,18 @@
 import os
 from aiohttp import web
 
-# Retrieve your bot's username using your existing environment variable.
+# Retrieve your bot's username from the environment.
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "default_bot_username")
 if BOT_USERNAME == "default_bot_username":
     print("WARNING: BOT_USERNAME is not set correctly in your environment!")
 
+# Handler for favicon requests – returns 204 No Content to prevent 404 errors.
 async def favicon_handler(request):
-    # Return a 204 No Content response for favicon requests.
     return web.Response(status=204)
 
+# Main handler for deep-link redirection.
 async def index(request):
-    # Debug logging: print out the full URL, path, and query parameters.
+    # Debug: Log request details.
     full_url = str(request.url)
     path = request.path
     query_params = dict(request.query)
@@ -19,14 +20,14 @@ async def index(request):
     print("DEBUG: Path:", path)
     print("DEBUG: Query Params:", query_params)
     
-    # Check if the "start" query parameter is present.
+    # Check for the "start" query parameter.
     start_param = request.query.get("start")
     if start_param:
-        # Build the Telegram deep-link using your BOT_USERNAME.
+        # Build the Telegram deep‑link using your BOT_USERNAME.
         deep_link = f"tg://resolve?domain={BOT_USERNAME}&start={start_param}"
         print("DEBUG: Generated deep-link:", deep_link)
         
-        # Build an HTML page that attempts to redirect to Telegram.
+        # Build an HTML page that redirects to Telegram.
         html_content = f"""<!DOCTYPE html>
 <html>
   <head>
@@ -59,19 +60,16 @@ async def index(request):
 </html>"""
         return web.Response(text=html_content, content_type="text/html")
     else:
-        # If no "start" parameter is provided, return a default message.
+        # Fallback response if no "start" parameter is provided.
         return web.Response(
-            text="No 'start' parameter provided. Thi page is for Telegram deep-link redirection.",
+            text="No 'start' parameter provided. This page is for Telegram deep-link redirection.",
             content_type="text/plain"
         )
 
 # Create the aiohttp application and register routes.
 app = web.Application()
-# Register the favicon route to avoid 404 errors.
 app.router.add_get("/favicon.ico", favicon_handler)
-# Explicitly register the root route.
 app.router.add_get("/", index)
-# Also register a catch-all route to handle cases where the trailing slash might be omitted.
 app.router.add_get("/{tail:.*}", index)
 
 if __name__ == "__main__":
