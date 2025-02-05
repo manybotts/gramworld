@@ -4,7 +4,6 @@ from aiohttp import web
 from plugins import web_server
 
 import pyromod.listen
-import asyncio
 from pyrogram import Client
 from pyrogram.enums import ParseMode
 import sys
@@ -61,7 +60,6 @@ class Bot(Client):
             db_channel = await self.get_chat(CHANNEL_ID)
             self.db_channel = db_channel
             test = await self.send_message(chat_id=db_channel.id, text="Test Message")
-            await asyncio.sleep(3)
             await test.delete()
         except Exception as e:
             self.LOGGER(__name__).warning(f"⚠️ Error: {e}")
@@ -82,16 +80,3 @@ class Bot(Client):
     async def stop(self, *args):
         await super().stop()
         self.LOGGER(__name__).info("🚫 Bot Stopped.")
-
-    async def send_temp_message(self, chat_id, text):
-        """Send a message that auto-deletes after 5 seconds"""
-        msg = await self.send_message(chat_id=chat_id, text=text)
-        await asyncio.sleep(5)
-        await msg.delete()
-
-    async def send_temp_file(self, chat_id, msg):
-        """Send a file that auto-deletes after 5 seconds"""
-        sent_msg = await msg.copy(chat_id=chat_id)
-        await asyncio.sleep(5)
-        await sent_msg.delete()
-
