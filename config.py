@@ -47,12 +47,12 @@ except ValueError:
 
 # =================== BOT UI MESSAGES =================== #
 
-# Welcome Message
+# Start Message (Optimized for TV Show Fetching)
 START_MSG = os.environ.get(
     "START_MESSAGE",
-    "<b>👋 Hello {first},\n\n"
-    "I am a file storage bot for iBOX TV 🎬. "
-    "I help users store and retrieve files effortlessly using special links.</b>"
+    "<b>👋 Hello, {first}!</b>\n\n"
+    "I am <b>iBOX TV File Share Bot</b>. 📺\n"
+    "Click on the <b>Season</b> or <b>Episode</b> buttons sent by the admin to fetch your favorite TV shows! 🎬"
 )
 
 # Force Subscription Message
