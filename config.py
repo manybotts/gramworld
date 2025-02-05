@@ -55,12 +55,12 @@ START_MSG = os.environ.get(
     "Click on the <b>Season</b> or <b>Episode</b> buttons sent by the admin to fetch your favorite TV shows! 🎬"
 )
 
-# Force Subscription Message
+# Force Subscription Message (Fixed Spacing & "Try Again" Button)
 FORCE_MSG = os.environ.get(
     "FORCE_SUB_MESSAGE",
-    "👋 Hello {first},\n\n"
-    "<b>To continue using me, you must join our channels below 👇</b>\n"
-    "📢 Join and then click **Reload** to access your requested file."
+    "👋 <b>Hello, {first},</b>\n\n"
+    "<i>To continue using me, you must join our channels below.</i> 👇\n\n"
+    "📢 <b>Join, then tap 'Try Again' to access your requested file.</b>"
 )
 
 # Custom Caption for Forwarded Files (Optional)
