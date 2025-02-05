@@ -9,7 +9,6 @@ import sys
 from datetime import datetime
 from config import API_HASH, APP_ID, LOGGER, TG_BOT_TOKEN, TG_BOT_WORKERS, FORCE_SUB_CHANNEL, FORCE_SUB_CHANNEL2, CHANNEL_ID, PORT
 import asyncio
-from auto_delete import auto_delete_messages  # ✅ Import auto-delete function without circular import
 
 class Bot(Client):
     def __init__(self):
@@ -28,32 +27,6 @@ class Bot(Client):
         usr_bot_me = await self.get_me()
         self.uptime = datetime.now()
 
-        # ✅ Setup Force Subscription Channels
-        if FORCE_SUB_CHANNEL:
-            try:
-                link = (await self.get_chat(FORCE_SUB_CHANNEL)).invite_link
-                if not link:
-                    await self.export_chat_invite_link(FORCE_SUB_CHANNEL)
-                    link = (await self.get_chat(FORCE_SUB_CHANNEL)).invite_link
-                self.invitelink = link
-            except Exception as e:
-                self.LOGGER(__name__).warning(f"⚠️ Error: {e}")
-                self.LOGGER(__name__).warning("❌ Force Sub Channel Error! Bot Stopped.")
-                sys.exit()
-
-        if FORCE_SUB_CHANNEL2:
-            try:
-                link = (await self.get_chat(FORCE_SUB_CHANNEL2)).invite_link
-                if not link:
-                    await self.export_chat_invite_link(FORCE_SUB_CHANNEL2)
-                    link = (await self.get_chat(FORCE_SUB_CHANNEL2)).invite_link
-                self.invitelink2 = link
-            except Exception as e:
-                self.LOGGER(__name__).warning(f"⚠️ Error: {e}")
-                self.LOGGER(__name__).warning("❌ Force Sub Channel 2 Error! Bot Stopped.")
-                sys.exit()
-
-        # ✅ Verify DB Channel Access
         try:
             db_channel = await self.get_chat(CHANNEL_ID)
             self.db_channel = db_channel
@@ -61,7 +34,6 @@ class Bot(Client):
             await test.delete()
         except Exception as e:
             self.LOGGER(__name__).warning(f"⚠️ Error: {e}")
-            self.LOGGER(__name__).warning(f"❌ Ensure bot is an admin in the DB Channel {CHANNEL_ID}")
             sys.exit()
 
         self.set_parse_mode(ParseMode.HTML)
@@ -80,5 +52,9 @@ class Bot(Client):
 
     async def send_temp_file(self, chat_id, msg):
         """✅ Sends a file and auto-deletes it after 5 seconds"""
-        sent_msg = await msg.copy(chat_id=chat_id)
-        await auto_delete_messages(self, chat_id, [sent_msg.id], delay=5)  # ✅ Auto-delete applied
+        try:
+            sent_msg = await msg.copy(chat_id=chat_id)
+            await asyncio.sleep(5)  # ⏳ Wait 5 seconds
+            await sent_msg.delete()  # ❌ Delete file
+        except Exception as e:
+            self.LOGGER(__name__).warning(f"⚠️ Error deleting message: {e}")
