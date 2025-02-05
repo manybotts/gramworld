@@ -11,39 +11,14 @@ from pyrogram.errors import FloodWait
 
 
 async def is_subscribed(filter, client, update):
-    if not FORCE_SUB_CHANNEL:
+    """Checks if a user is subscribed to required channels."""
+    if not FORCE_SUB_CHANNEL and not FORCE_SUB_CHANNEL2:
         return True
+
     user_id = update.from_user.id
     if user_id in ADMINS:
         return True
-    try:
-        member = await client.get_chat_member(chat_id=FORCE_SUB_CHANNEL, user_id=user_id)
-    except UserNotParticipant:
-        return False
 
-    return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER]
-
-
-async def is_subscribed(filter, client, update):
-    if not FORCE_SUB_CHANNEL2:
-        return True
-    user_id = update.from_user.id
-    if user_id in ADMINS:
-        return True
-    try:
-        member = await client.get_chat_member(chat_id=FORCE_SUB_CHANNEL2, user_id=user_id)
-    except UserNotParticipant:
-        return False
-
-    return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER]
-
-
-async def is_subscribed(filter, client, update):
-    if not FORCE_SUB_CHANNEL or not FORCE_SUB_CHANNEL2:
-        return True
-    user_id = update.from_user.id
-    if user_id in ADMINS:
-        return True
     try:
         member1 = await client.get_chat_member(chat_id=FORCE_SUB_CHANNEL, user_id=user_id)
         member2 = await client.get_chat_member(chat_id=FORCE_SUB_CHANNEL2, user_id=user_id)
@@ -57,6 +32,7 @@ async def is_subscribed(filter, client, update):
 
 
 async def encode(string):
+    """Encodes text to a URL-safe Base64 format."""
     string_bytes = string.encode("ascii")
     base64_bytes = base64.urlsafe_b64encode(string_bytes)
     base64_string = (base64_bytes.decode("ascii")).strip("=")
@@ -64,40 +40,59 @@ async def encode(string):
 
 
 async def decode(base64_string):
-    base64_string = base64_string.strip("=")  # Handles padding errors for older links
+    """Decodes a Base64 URL-safe string back to its original format."""
+    base64_string = base64_string.strip("=")
     base64_bytes = (base64_string + "=" * (-len(base64_string) % 4)).encode("ascii")
     string_bytes = base64.urlsafe_b64decode(base64_bytes)
     string = string_bytes.decode("ascii")
     return string
 
 
-async def get_messages(client, message_ids):
-    """Fetch messages from DB channel and auto-delete sent files after 5 seconds."""
+async def get_messages(client, message_ids, chat_id):
+    """Fetches messages from the DB channel and auto-deletes sent files after 5 seconds."""
     messages = []
     total_messages = 0
-    while total_messages != len(message_ids):
+
+    while total_messages < len(message_ids):
         temp_ids = message_ids[total_messages:total_messages + 200]
         try:
             msgs = await client.get_messages(chat_id=client.db_channel.id, message_ids=temp_ids)
         except FloodWait as e:
             await asyncio.sleep(e.x)
             msgs = await client.get_messages(chat_id=client.db_channel.id, message_ids=temp_ids)
-        except:
-            pass
+        except Exception as e:
+            print(f"Error fetching messages: {e}")
+            return None  # Return None if messages couldn't be retrieved
+
         total_messages += len(temp_ids)
         messages.extend(msgs)
 
-    # ✅ Auto-delete after 5 seconds
+    if not messages:
+        return None  # If no messages were retrieved, return None
+
+    sent_messages = []
+
     for msg in messages:
-        sent_msg = await msg.copy(chat_id=client.chat_id)  # Send file
-        await asyncio.sleep(5)  # ⏳ Wait 5 seconds
-        await sent_msg.delete()  # ❌ Delete file
+        try:
+            # ✅ Corrected: Send files to the correct user chat_id
+            sent_msg = await msg.copy(chat_id=chat_id)
+            sent_messages.append(sent_msg)
+        except Exception as e:
+            print(f"Error sending message: {e}")
+
+    # ✅ Auto-delete only if messages were successfully sent
+    await asyncio.sleep(5)
+    for sent_msg in sent_messages:
+        try:
+            await sent_msg.delete()
+        except:
+            pass
 
     return messages
 
 
 async def get_message_id(client, message):
-    """Extracts message ID from a forwarded message or a Telegram link."""
+    """Extracts the message ID from a forwarded message or a Telegram link."""
     if message.forward_from_chat and message.forward_from_chat.id == client.db_channel.id:
         return message.forward_from_message_id
     elif message.forward_sender_name:
@@ -119,7 +114,7 @@ async def get_message_id(client, message):
 
 
 def get_readable_time(seconds: int) -> str:
-    """Converts seconds into a readable format like '1d:2h:3m:4s'."""
+    """Converts seconds into a readable time format like '1d:2h:3m:4s'."""
     count = 0
     up_time = ""
     time_list = []
