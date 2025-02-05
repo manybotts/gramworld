@@ -9,7 +9,7 @@ from bot import Bot
 from config import ADMINS, CHANNEL_ID, HEROKU_APP_URL, DISABLE_CHANNEL_BUTTON
 from helper_func import encode
 
-@Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(['start','users','broadcast','batch','genlink','stats']))
+@Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(['start', 'users', 'broadcast', 'batch', 'genlink', 'stats']))
 async def channel_post(client: Client, message: Message):
     """Handles posts from admins and generates shareable links"""
     
@@ -40,10 +40,10 @@ async def channel_post(client: Client, message: Message):
         ]
     )
 
-    # Sending the generated link in a clean format
+    # Sending the generated link in a clean format (Fixed Apostrophe Issue)
     await reply_text.edit(
         f"✅ **Your link has been generated!**\n\n"
-        f"🔗 **Secure Link:** `{link}`\n\n"
+        f"🔗 **Secure Link:** <code>{link}</code>\n\n"
         f"🔄 Share this link to give access.",
         reply_markup=reply_markup,
         disable_web_page_preview=True
