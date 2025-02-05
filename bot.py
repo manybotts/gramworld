@@ -4,12 +4,11 @@ from aiohttp import web
 from plugins import web_server
 import pyromod.listen
 from pyrogram import Client
-from pyrogram.enums import ParseMode
+from pyrogram.enums import ParseMode, ChatType
 import sys
 import asyncio
 from datetime import datetime
-from collections import defaultdict
-from config import API_HASH, APP_ID, LOGGER, TG_BOT_TOKEN, TG_BOT_WORKERS, FORCE_SUB_CHANNEL, FORCE_SUB_CHANNEL2, CHANNEL_ID, PORT
+from config import API_HASH, APP_ID, LOGGER, TG_BOT_TOKEN, TG_BOT_WORKERS, CHANNEL_ID, PORT
 
 class Bot(Client):
     def __init__(self):
@@ -22,7 +21,6 @@ class Bot(Client):
             bot_token=TG_BOT_TOKEN
         )
         self.LOGGER = LOGGER
-        self.delete_queue = defaultdict(list)  # ✅ Queue to track messages for deletion
 
     async def start(self):
         await super().start()
@@ -42,9 +40,6 @@ class Bot(Client):
         self.LOGGER(__name__).info(f"✅ Bot Running Successfully! Created by iBOX TV")
         self.username = usr_bot_me.username
 
-        # ✅ Start background deletion task
-        asyncio.create_task(self.process_delete_queue())
-
         # ✅ Web Server Setup
         app = web.AppRunner(await web_server())
         await app.setup()
@@ -56,21 +51,14 @@ class Bot(Client):
         self.LOGGER(__name__).info("🚫 Bot Stopped.")
 
     async def send_temp_file(self, chat_id, msg):
-        """✅ Sends a file and schedules it for auto-deletion"""
+        """✅ Sends a file and auto-deletes it after 5 seconds in private chats"""
         try:
             sent_msg = await msg.copy(chat_id=chat_id)
-            self.delete_queue[chat_id].append(sent_msg.id)  # ✅ Add message to delete queue
-        except Exception as e:
-            self.LOGGER(__name__).warning(f"⚠️ Error sending file: {e}")
 
-    async def process_delete_queue(self):
-        """✅ Background task that processes the delete queue every 5 seconds"""
-        while True:
-            await asyncio.sleep(5)  # ✅ Run every 5 seconds
-            for chat_id, messages in list(self.delete_queue.items()):
-                if messages:
-                    try:
-                        await self.delete_messages(chat_id, messages)
-                        self.delete_queue[chat_id] = []  # ✅ Clear queue after deletion
-                    except Exception as e:
-                        self.LOGGER(__name__).warning(f"⚠️ Error deleting messages in chat {chat_id}: {e}")
+            # ✅ Check if it's a private chat before deleting
+            chat = await self.get_chat(chat_id)
+            if chat.type == ChatType.PRIVATE:
+                await asyncio.sleep(5)  # ✅ Wait 5 seconds
+                await self.delete_messages(chat_id, [sent_msg.message_id])  # ✅ Delete the message
+        except Exception as e:
+            self.LOGGER(__name__).warning(f"⚠️ Error deleting message: {e}")
