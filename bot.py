@@ -83,3 +83,15 @@ class Bot(Client):
         await super().stop()
         self.LOGGER(__name__).info("🚫 Bot Stopped.")
 
+    async def send_temp_message(self, chat_id, text):
+        """Send a message that auto-deletes after 5 seconds"""
+        msg = await self.send_message(chat_id=chat_id, text=text)
+        await asyncio.sleep(5)
+        await msg.delete()
+
+    async def send_temp_file(self, chat_id, msg):
+        """Send a file that auto-deletes after 5 seconds"""
+        sent_msg = await msg.copy(chat_id=chat_id)
+        await asyncio.sleep(5)
+        await sent_msg.delete()
+
