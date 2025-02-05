@@ -12,23 +12,31 @@ from pyrogram.errors import FloodWait
 
 async def is_subscribed(filter, client, update):
     """Checks if a user is subscribed to required channels."""
-    if not FORCE_SUB_CHANNEL and not FORCE_SUB_CHANNEL2:
+    if not FORCE_SUB_CHANNEL:
         return True
-
     user_id = update.from_user.id
     if user_id in ADMINS:
         return True
-
     try:
-        member1 = await client.get_chat_member(chat_id=FORCE_SUB_CHANNEL, user_id=user_id)
-        member2 = await client.get_chat_member(chat_id=FORCE_SUB_CHANNEL2, user_id=user_id)
+        member = await client.get_chat_member(chat_id=FORCE_SUB_CHANNEL, user_id=user_id)
     except UserNotParticipant:
         return False
 
-    return all(
-        m.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER]
-        for m in [member1, member2]
-    )
+    return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER]
+
+
+async def is_subscribed(filter, client, update):
+    if not FORCE_SUB_CHANNEL2:
+        return True
+    user_id = update.from_user.id
+    if user_id in ADMINS:
+        return True
+    try:
+        member = await client.get_chat_member(chat_id=FORCE_SUB_CHANNEL2, user_id=user_id)
+    except UserNotParticipant:
+        return False
+
+    return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER]
 
 
 async def encode(string):
@@ -48,8 +56,8 @@ async def decode(base64_string):
     return string
 
 
-async def get_messages(client, message_ids, chat_id):
-    """Fetches messages from the DB channel and auto-deletes sent files after 5 seconds."""
+async def get_messages(client, message_ids):
+    """Fetches messages from the DB channel."""
     messages = []
     total_messages = 0
 
@@ -60,33 +68,10 @@ async def get_messages(client, message_ids, chat_id):
         except FloodWait as e:
             await asyncio.sleep(e.x)
             msgs = await client.get_messages(chat_id=client.db_channel.id, message_ids=temp_ids)
-        except Exception as e:
-            print(f"Error fetching messages: {e}")
-            return None  # Return None if messages couldn't be retrieved
-
-        total_messages += len(temp_ids)
-        messages.extend(msgs)
-
-    if not messages:
-        return None  # If no messages were retrieved, return None
-
-    sent_messages = []
-
-    for msg in messages:
-        try:
-            # ✅ Corrected: Send files to the correct user chat_id
-            sent_msg = await msg.copy(chat_id=chat_id)
-            sent_messages.append(sent_msg)
-        except Exception as e:
-            print(f"Error sending message: {e}")
-
-    # ✅ Auto-delete only if messages were successfully sent
-    await asyncio.sleep(5)
-    for sent_msg in sent_messages:
-        try:
-            await sent_msg.delete()
         except:
             pass
+        total_messages += len(temp_ids)
+        messages.extend(msgs)
 
     return messages
 
