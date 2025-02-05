@@ -10,6 +10,7 @@ import sys
 from datetime import datetime
 
 from config import API_HASH, APP_ID, LOGGER, TG_BOT_TOKEN, TG_BOT_WORKERS, FORCE_SUB_CHANNEL, FORCE_SUB_CHANNEL2, CHANNEL_ID, PORT
+from auto_delete import auto_delete_messages  # ✅ Import auto-delete function
 
 class Bot(Client):
     def __init__(self):
@@ -80,3 +81,9 @@ class Bot(Client):
     async def stop(self, *args):
         await super().stop()
         self.LOGGER(__name__).info("🚫 Bot Stopped.")
+
+    async def send_temp_file(self, chat_id, msg):
+        """✅ Sends a file and auto-deletes it after 5 seconds"""
+        sent_msg = await msg.copy(chat_id=chat_id)
+        await auto_delete_messages(self, chat_id, [sent_msg.id], delay=5)  # ✅ Auto-delete applied
+
