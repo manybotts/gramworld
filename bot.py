@@ -22,7 +22,7 @@ class Bot(Client):
             bot_token=TG_BOT_TOKEN
         )
         self.LOGGER = LOGGER
-        self.pending_deletes = defaultdict(list)  # ✅ Store messages for deletion
+        self.pending_deletes = defaultdict(list)  # ✅ Queue for messages to delete
 
     async def start(self):
         await super().start()
@@ -56,23 +56,34 @@ class Bot(Client):
         self.LOGGER(__name__).info("🚫 Bot Stopped.")
 
     async def send_temp_file(self, chat_id, msg):
-        """✅ Sends a file and schedules it for auto-deletion"""
+        """✅ Sends a file and schedules it for auto-deletion after exactly 5 seconds"""
         try:
             sent_msg = await msg.copy(chat_id=chat_id)
 
-            # ✅ Store message ID for deletion tracking
-            self.pending_deletes[chat_id].append(sent_msg.message_id)
+            # ✅ Store message ID and the exact deletion time (current time + 5 sec)
+            delete_time = datetime.now().timestamp() + 5  # Calculate future timestamp
+            self.pending_deletes[chat_id].append((sent_msg.message_id, delete_time))
+
         except Exception as e:
             self.LOGGER(__name__).warning(f"⚠️ Error sending file: {e}")
 
     async def process_delete_queue(self):
-        """✅ Background task to delete messages every 5 seconds"""
+        """✅ Background task that accurately deletes messages at the correct time"""
         while True:
-            await asyncio.sleep(5)  # ✅ Run every 5 seconds
+            now = datetime.now().timestamp()
             for chat_id, messages in list(self.pending_deletes.items()):
-                if messages:
+                messages_to_delete = [
+                    msg_id for msg_id, delete_time in messages if now >= delete_time
+                ]
+
+                if messages_to_delete:
                     try:
-                        await self.delete_messages(chat_id, messages)
-                        self.pending_deletes[chat_id] = []  # ✅ Clear queue after deletion
+                        await self.delete_messages(chat_id, messages_to_delete)
+                        self.pending_deletes[chat_id] = [
+                            (msg_id, delete_time) for msg_id, delete_time in self.pending_deletes[chat_id]
+                            if msg_id not in messages_to_delete
+                        ]
                     except Exception as e:
                         self.LOGGER(__name__).warning(f"⚠️ Error deleting messages in chat {chat_id}: {e}")
+
+            await asyncio.sleep(1)  # ✅ Check every second for accuracy
