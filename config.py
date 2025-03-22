@@ -61,7 +61,7 @@ START_MSG = os.environ.get(
 FORCE_MSG = os.environ.get(
     "FORCE_SUB_MESSAGE",
     "👋 <b>Hello, {first},</b>\n\n"
-    "<i>To continue using me, you must join our channels below.</i> 👇\n\n"
+    "<i>To Receive the requested Files, you must join our two channels below.</i> 👇\n\n"
     "📢 <b>Join, then tap 'Try Again' to access your requested file.</b>"
 )
 
