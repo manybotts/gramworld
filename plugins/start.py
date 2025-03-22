@@ -2,8 +2,8 @@ import os
 import asyncio
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated, MessageNotModified, BadRequest
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated, MessageNotModified
 
 from bot import Bot
 from config import ADMINS, OWNER_ID, FORCE_MSG, START_MSG, CUSTOM_CAPTION, DISABLE_CHANNEL_BUTTON, PROTECT_CONTENT, TUTORIAL_VIDEO_ID, CHANNEL_ID
@@ -11,10 +11,11 @@ from helper_func import subscribed, encode, decode, get_messages
 from database.database import add_user, del_user, full_userbase, present_user
 
 
-@Bot.on_message(filters.command('start') & filters.private)  # One handler for all /start commands
-async def start_command(client: Client, message: Message):
-    """Handles the bot start command"""
 
+
+@Bot.on_message(filters.command('start') & filters.private)  # Single handler for ALL /start
+async def start_command(client: Client, message: Message):
+    """Handles the /start command."""
     user_id = message.from_user.id
 
     if not await subscribed(client, message):
@@ -25,7 +26,7 @@ async def start_command(client: Client, message: Message):
                 await client.send_video(
                     chat_id=user_id,
                     video=tutorial_message.video.file_id,
-                    caption=tutorial_message.caption,  # Use original caption
+                    caption=tutorial_message.caption,
                     parse_mode=ParseMode.HTML if tutorial_message.caption else None,
                 )
             else:
@@ -43,7 +44,7 @@ async def start_command(client: Client, message: Message):
             await message.reply_text(f"Error sending tutorial: {e}")
             return
 
-        # --- Force Subscription Message ---
+        # --- Force Subscription Message (Unsubscribed Users) ---
         buttons = [
             [
                 InlineKeyboardButton(text="📢 Join Channel 1", url=client.invitelink),
@@ -55,12 +56,13 @@ async def start_command(client: Client, message: Message):
                 [
                     InlineKeyboardButton(
                         text="🔄 Try Again",
+                        # Construct the URL correctly!
                         url=f"https://t.me/{client.username}?start={message.command[1] if len(message.command) > 1 else ''}"
                     )
                 ]
             )
         except Exception as e:
-             print(f"An error occurred: {e}") # Handles unexpected error
+             print(f"An error occurred: {e}") # Handles unexpected error.
 
         await message.reply(
             text=FORCE_MSG.format(
@@ -74,7 +76,7 @@ async def start_command(client: Client, message: Message):
             quote=True,
             disable_web_page_preview=True
         )
-        return  # Stop processing for unsubscribed users
+        return  # IMPORTANT: Stop processing for unsubscribed users
 
     # --- Subscribed Users Logic ---
     if not await present_user(user_id):
@@ -84,7 +86,8 @@ async def start_command(client: Client, message: Message):
             pass
 
     text = message.text
-    if len(text) > 7:
+    if len(text) > 7:  # Check for /start arguments
+        # --- File Request Handling (Subscribed Users, with Arguments) ---
         try:
             base64_string = text.split(" ", 1)[1]
         except:
@@ -131,9 +134,10 @@ async def start_command(client: Client, message: Message):
                 await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
             except:
                 pass
+        return  # IMPORTANT: Return after handling file request
 
-        return
     else:
+        # --- Default /start Message (Subscribed Users, No Arguments) ---
         reply_markup = InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("ℹ️ About", callback_data="about"),
@@ -162,8 +166,7 @@ WAIT_MSG = "⏳ **Processing...** Please wait."
 REPLY_ERROR = "❌ **Incorrect Usage**\n\nUse this command as a reply to any **Telegram message**."
 
 # =====================================================================================##
-#Removed not_joined function
-
+#Removed not_joined function, and callback query handler
 @Bot.on_message(filters.command('users') & filters.private & filters.user(ADMINS))
 async def get_users(client: Bot, message: Message):
     """Displays the number of users using the bot"""
