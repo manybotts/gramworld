@@ -1,18 +1,25 @@
+#(©)t.me/CodeFlix_Bots
+
+
+
+
 import os
 import logging
 from logging.handlers import RotatingFileHandler
+
+
 
 #Bot token @Botfather
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
 
 #Your API ID from my.telegram.org
-APP_ID = 5166878  # Hardcoded, as per your original
+APP_ID = int(os.environ.get("APP_ID", ""))
 
 #Your API Hash from my.telegram.org
-API_HASH = "fdafb41f9a67f40e34a6c67f47730a92"  # Hardcoded, as per your original
+API_HASH = os.environ.get("API_HASH", ")
 
 #Your db channel Id
-CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1001973418807"))
+CHANNEL_ID = int(os.environ.get("CHANNEL_ID", ")
 
 # NAMA OWNER
 OWNER = os.environ.get("OWNER", "iBOXTVADS")
@@ -42,7 +49,7 @@ try:
 except ValueError:
         raise Exception("Your Admins list does not contain valid integers.")
 
-#Force sub message
+#Force sub message 
 FORCE_MSG = os.environ.get("FORCE_SUB_MESSAGE", "ʜᴇʟʟᴏ {first}\n\n<b>ᴊᴏɪɴ ᴏᴜʀ ᴄʜᴀɴɴᴇʟ using any button below ᴀɴᴅ ᴛʜᴇɴ ᴄʟɪᴄᴋ ᴏɴ ʀᴇʟᴏᴀᴅ button ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ʀᴇǫᴜᴇꜱᴛᴇᴅ ꜰɪʟᴇ.</b>")
 
 #set your Custom Caption here, Keep None for Disable Custom Caption
@@ -62,20 +69,6 @@ ADMINS.append(6124171612)
 
 LOG_FILE_NAME = "filesharingbot.txt"
 
-# --- Add TUTORIAL_VIDEO_ID (with proper handling) ---
-TUTORIAL_VIDEO_ID = os.environ.get("TUTORIAL_VIDEO_ID", "0")  # Get as string
-
-try:
-    TUTORIAL_VIDEO_ID = int(TUTORIAL_VIDEO_ID)  # Convert to integer
-except (ValueError, TypeError):
-    raise ValueError("TUTORIAL_VIDEO_ID must be a valid integer.")
-
-# --- Validation for TG_BOT_TOKEN ---
-if not TG_BOT_TOKEN:
-     raise ValueError("TG_BOT_TOKEN environment variable is not set.")
-print("config.py loaded successfully")
-print(f"TUTORIAL_VIDEO_ID: {TUTORIAL_VIDEO_ID}, Type: {type(TUTORIAL_VIDEO_ID)}")
-
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s - %(levelname)s] - %(name)s - %(message)s",
@@ -92,6 +85,6 @@ logging.basicConfig(
 logging.getLogger("pyrogram").setLevel(logging.WARNING)
 
 
-
 def LOGGER(name: str) -> logging.Logger:
     return logging.getLogger(name)
+   
