@@ -3,10 +3,10 @@ import asyncio
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated, MessageNotModified
+from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
 
 from bot import Bot
-from config import ADMINS, OWNER_ID, FORCE_MSG, START_MSG, CUSTOM_CAPTION, DISABLE_CHANNEL_BUTTON, PROTECT_CONTENT, TUTORIAL_VIDEO_ID, CHANNEL_ID
+from config import ADMINS, OWNER_ID, FORCE_MSG, START_MSG, CUSTOM_CAPTION, DISABLE_CHANNEL_BUTTON, PROTECT_CONTENT
 from helper_func import subscribed, encode, decode, get_messages
 from database.database import add_user, del_user, full_userbase, present_user
 
@@ -100,7 +100,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview = True,
             quote = True
         )
-        return
+        return   
 
 
 #=====================================================================================##
@@ -111,29 +111,10 @@ REPLY_ERROR = """<code>Use this command as a reply to any telegram message with 
 
 #=====================================================================================##
 
-
-
+    
+    
 @Bot.on_message(filters.command('start') & filters.private)
 async def not_joined(client: Client, message: Message):
-    try:
-        # Fetch the tutorial video message
-        tutorial_message = await client.get_messages(CHANNEL_ID, TUTORIAL_VIDEO_ID)
-
-        # Check if the message is actually a video and send
-        if tutorial_message.video:
-            await client.send_video(
-                chat_id=message.from_user.id,
-                video=tutorial_message.video.file_id,
-                caption=tutorial_message.caption,  # Use original caption!
-                parse_mode=ParseMode.HTML if tutorial_message.caption else None, # Use HTML parsing if there is caption
-            )
-        else:
-            await message.reply_text("Error: The tutorial message is not a video.")
-            return
-    except Exception as e:
-        await message.reply_text(f"Error sending tutorial: {e}")
-        return
-
     buttons = [
         [
             InlineKeyboardButton(text="Join Channel 1", url=client.invitelink),
@@ -144,22 +125,13 @@ async def not_joined(client: Client, message: Message):
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text='Try Again Now🥰',
-                    url=f"https://t.me/{client.username}?start={message.command[1]}"
+                    text = 'Try Again Now🥰',
+                    url = f"https://t.me/{client.username}?start={message.command[1]}"
                 )
             ]
         )
     except IndexError:
-        # Handle cases where there's no command argument (plain /start)
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text='Try Again Now🥰',
-                    url=f"https://t.me/{client.username}?start" # Plain /start
-                )
-            ]
-        )
-
+        pass
 
     await message.reply(
         text = FORCE_MSG.format(
@@ -190,7 +162,7 @@ async def send_text(client: Bot, message: Message):
         blocked = 0
         deleted = 0
         unsuccessful = 0
-
+        
         pls_wait = await message.reply("<i>Broadcasting Message.. This will Take Some Time</i>")
         for chat_id in query:
             try:
@@ -210,7 +182,7 @@ async def send_text(client: Bot, message: Message):
                 unsuccessful += 1
                 pass
             total += 1
-
+        
         status = f"""<b><u>Broadcast Completed</u>
 
 Total Users: <code>{total}</code>
@@ -218,7 +190,7 @@ Successful: <code>{successful}</code>
 Blocked Users: <code>{blocked}</code>
 Deleted Accounts: <code>{deleted}</code>
 Unsuccessful: <code>{unsuccessful}</code></b>"""
-
+        
         return await pls_wait.edit(status)
 
     else:
@@ -226,4 +198,3 @@ Unsuccessful: <code>{unsuccessful}</code></b>"""
         await asyncio.sleep(8)
         await msg.delete()
 
-#No Callback query handler needed
