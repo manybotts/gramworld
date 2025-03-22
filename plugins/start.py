@@ -1,30 +1,88 @@
-# (©) iBOX TV
-
 import os
 import asyncio
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
+from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated, MessageNotModified, BadRequest
 
 from bot import Bot
-from config import ADMINS, OWNER_ID, FORCE_MSG, START_MSG, CUSTOM_CAPTION, DISABLE_CHANNEL_BUTTON, PROTECT_CONTENT
+from config import ADMINS, OWNER_ID, FORCE_MSG, START_MSG, CUSTOM_CAPTION, DISABLE_CHANNEL_BUTTON, PROTECT_CONTENT, TUTORIAL_VIDEO_ID, CHANNEL_ID
 from helper_func import subscribed, encode, decode, get_messages
 from database.database import add_user, del_user, full_userbase, present_user
 
 
-@Bot.on_message(filters.command('start') & filters.private & subscribed)
+@Bot.on_message(filters.command('start') & filters.private)  # One handler for all /start commands
 async def start_command(client: Client, message: Message):
     """Handles the bot start command"""
-    
+
     user_id = message.from_user.id
-    
+
+    if not await subscribed(client, message):
+        # --- Send Tutorial Video (Unsubscribed Users) ---
+        try:
+            tutorial_message = await client.get_messages(CHANNEL_ID, TUTORIAL_VIDEO_ID)
+            if tutorial_message.video:
+                await client.send_video(
+                    chat_id=user_id,
+                    video=tutorial_message.video.file_id,
+                    caption=tutorial_message.caption,  # Use original caption
+                    parse_mode=ParseMode.HTML if tutorial_message.caption else None,
+                )
+            else:
+                await message.reply_text("Error: The tutorial message is not a video.")
+                return
+        except BadRequest as e:
+            if "MESSAGE_ID_INVALID" in str(e):
+                await message.reply_text(f"Error: Invalid TUTORIAL_VIDEO_ID ({TUTORIAL_VIDEO_ID}).  Check config.")
+            else:
+                await message.reply_text(f"Error fetching tutorial: {e}")
+            return
+        except MessageNotModified:
+            print("Tutorial video likely already sent.")
+        except Exception as e:
+            await message.reply_text(f"Error sending tutorial: {e}")
+            return
+
+        # --- Force Subscription Message ---
+        buttons = [
+            [
+                InlineKeyboardButton(text="📢 Join Channel 1", url=client.invitelink),
+                InlineKeyboardButton(text="🎥 Join Channel 2", url=client.invitelink2),
+            ]
+        ]
+        try:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text="🔄 Try Again",
+                        url=f"https://t.me/{client.username}?start={message.command[1] if len(message.command) > 1 else ''}"
+                    )
+                ]
+            )
+        except Exception as e:
+             print(f"An error occurred: {e}") # Handles unexpected error
+
+        await message.reply(
+            text=FORCE_MSG.format(
+                first=message.from_user.first_name,
+                last=message.from_user.last_name,
+                username='@' + message.from_user.username if message.from_user.username else None,
+                mention=message.from_user.mention,
+                id=message.from_user.id
+            ),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            quote=True,
+            disable_web_page_preview=True
+        )
+        return  # Stop processing for unsubscribed users
+
+    # --- Subscribed Users Logic ---
     if not await present_user(user_id):
         try:
             await add_user(user_id)
         except:
             pass
-    
+
     text = message.text
     if len(text) > 7:
         try:
@@ -50,7 +108,7 @@ async def start_command(client: Client, message: Message):
                 return
 
         temp_msg = await message.reply("⏳ **Fetching your files...** Please wait.")
-        
+
         try:
             messages = await get_messages(client, ids)
         except:
@@ -101,52 +159,15 @@ async def start_command(client: Client, message: Message):
 
 WAIT_MSG = "⏳ **Processing...** Please wait."
 
-REPLY_ERROR = "❌ **Incorrect Usage**\n\nUse this command as a **reply** to any **Telegram message**."
+REPLY_ERROR = "❌ **Incorrect Usage**\n\nUse this command as a reply to any **Telegram message**."
 
 # =====================================================================================##
-
-
-@Bot.on_message(filters.command('start') & filters.private)
-async def not_joined(client: Client, message: Message):
-    """Handles users who have not joined required channels"""
-    
-    buttons = [
-        [
-            InlineKeyboardButton(text="📢 Join Channel 1", url=client.invitelink),
-            InlineKeyboardButton(text="🎥 Join Channel 2", url=client.invitelink2),
-        ]
-    ]
-    
-    try:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text="🔄 Try Again",
-                    url=f"https://t.me/{client.username}?start={message.command[1]}"
-                )
-            ]
-        )
-    except IndexError:
-        pass
-
-    await message.reply(
-        text=FORCE_MSG.format(
-            first=message.from_user.first_name,
-            last=message.from_user.last_name,
-            username='@' + message.from_user.username if message.from_user.username else None,
-            mention=message.from_user.mention,
-            id=message.from_user.id
-        ),
-        reply_markup=InlineKeyboardMarkup(buttons),
-        quote=True,
-        disable_web_page_preview=True
-    )
-
+#Removed not_joined function
 
 @Bot.on_message(filters.command('users') & filters.private & filters.user(ADMINS))
 async def get_users(client: Bot, message: Message):
     """Displays the number of users using the bot"""
-    
+
     msg = await client.send_message(chat_id=message.chat.id, text=WAIT_MSG)
     users = await full_userbase()
     await msg.edit(f"📊 **Total Users:** `{len(users)}`")
@@ -155,7 +176,7 @@ async def get_users(client: Bot, message: Message):
 @Bot.on_message(filters.private & filters.command('broadcast') & filters.user(ADMINS))
 async def send_text(client: Bot, message: Message):
     """Broadcasts messages to all users"""
-    
+
     if message.reply_to_message:
         query = await full_userbase()
         broadcast_msg = message.reply_to_message
