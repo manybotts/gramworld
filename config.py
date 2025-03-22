@@ -14,8 +14,8 @@ HEROKU_APP_URL = os.environ.get("HEROKU_APP_URL", "") #  Not strictly required
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN") # Now required
 
 # Telegram API Credentials (from my.telegram.org)
-APP_ID = os.environ.get("APP_ID")  # Get as string initially, will convert later
-API_HASH = os.environ.get("API_HASH") # Now required
+APP_ID = 5166878  # Hardcoded as per original
+API_HASH = "fdafb41f9a67f40e34a6c67f47730a92"  # Hardcoded as per original
 
 # Database Configuration
 DB_URI = os.environ.get("DATABASE_URL", "")
@@ -99,22 +99,16 @@ logging.getLogger("pyrogram").setLevel(logging.WARNING)
 # --- Validation and Conversions ---
 if not TG_BOT_TOKEN:
     raise ValueError("TG_BOT_TOKEN environment variable is not set.")
-if not API_HASH:
-    raise ValueError("API_HASH environment variable is not set.")
-if not APP_ID:
-    raise ValueError("APP_ID environment variable is not set.")
+
+# NO validation for APP_ID and API_HASH, since they're hardcoded now
+
 if not TUTORIAL_VIDEO_ID or TUTORIAL_VIDEO_ID == "0":
     raise ValueError("TUTORIAL_VIDEO_ID is not set or is set to '0'.")
 
 try:
-    APP_ID = int(APP_ID)  # Convert to integer *after* checking if it exists
-except (ValueError, TypeError) as e:
-    raise ValueError(f"APP_ID environment variable must be a valid integer. Error: {e}")
-
-try:
     TUTORIAL_VIDEO_ID = int(TUTORIAL_VIDEO_ID)  # Convert to int *after* check
 except (ValueError, TypeError) as e:
-    raise ValueError(f"TUTORIAL_VIDEO_ID environment variable must be a valid integer. Error: {e}")
+     raise ValueError(f"TUTORIAL_VIDEO_ID environment variable must be a valid integer. Error: {e}")
 
 print("config.py loaded successfully")
 print(f"TUTORIAL_VIDEO_ID: {TUTORIAL_VIDEO_ID}, Type: {type(TUTORIAL_VIDEO_ID)}")
