@@ -11,133 +11,122 @@ from helper_func import subscribed, encode, decode, get_messages
 from database.database import add_user, del_user, full_userbase, present_user
 
 
-
-
-@Bot.on_message(filters.command('start') & filters.private)  # Single handler for ALL /start
+@Bot.on_message(filters.command('start') & filters.private)  # Single handler
 async def start_command(client: Client, message: Message):
     """Handles the /start command."""
     user_id = message.from_user.id
+    text = message.text
 
-    if not await subscribed(client, message):
-        # --- Send Tutorial Video (Unsubscribed Users) ---
-        try:
-            tutorial_message = await client.get_messages(CHANNEL_ID, TUTORIAL_VIDEO_ID)
-            if tutorial_message.video:
-                await client.send_video(
-                    chat_id=user_id,
-                    video=tutorial_message.video.file_id,
-                    caption=tutorial_message.caption,
-                    parse_mode=ParseMode.HTML if tutorial_message.caption else None,
-                )
-            else:
-                await message.reply_text("Error: The tutorial message is not a video.")
+    # --- 1. Handle /start with arguments (File Requests) ---
+    if len(text) > 7:  # Check for arguments *first*
+        if not await subscribed(client, message):
+            # --- Send Tutorial (Unsubscribed, with arguments) ---
+            try:
+                tutorial_message = await client.get_messages(CHANNEL_ID, TUTORIAL_VIDEO_ID)
+                if tutorial_message.video:
+                    await client.send_video(
+                        chat_id=user_id,
+                        video=tutorial_message.video.file_id,
+                        caption=tutorial_message.caption,
+                        parse_mode=ParseMode.HTML if tutorial_message.caption else None,
+                    )
+                else:
+                    await message.reply_text("Error: The tutorial message is not a video.")
+                    return
+            except BadRequest as e:
+                if "MESSAGE_ID_INVALID" in str(e):
+                    await message.reply_text(f"Error: Invalid TUTORIAL_VIDEO_ID ({TUTORIAL_VIDEO_ID}). Check config.")
+                else:
+                    await message.reply_text(f"Error fetching tutorial: {e}")
                 return
-        except BadRequest as e:
-            if "MESSAGE_ID_INVALID" in str(e):
-                await message.reply_text(f"Error: Invalid TUTORIAL_VIDEO_ID ({TUTORIAL_VIDEO_ID}).  Check config.")
-            else:
-                await message.reply_text(f"Error fetching tutorial: {e}")
-            return
-        except MessageNotModified:
-            print("Tutorial video likely already sent.")
-        except Exception as e:
-            await message.reply_text(f"Error sending tutorial: {e}")
-            return
+            except MessageNotModified:
+                print("Tutorial video likely already sent.")
+            except Exception as e:
+                await message.reply_text(f"Error sending tutorial: {e}")
+                return
 
-        # --- Force Subscription Message (Unsubscribed Users) ---
-        buttons = [
-            [
-                InlineKeyboardButton(text="📢 Join Channel 1", url=client.invitelink),
-                InlineKeyboardButton(text="🎥 Join Channel 2", url=client.invitelink2),
-            ]
-        ]
-        try:
-            buttons.append(
+            # --- Force Subscription (Unsubscribed, with arguments) ---
+            buttons = [
+                [
+                    InlineKeyboardButton(text="📢 Join Channel 1", url=client.invitelink),
+                    InlineKeyboardButton(text="🎥 Join Channel 2", url=client.invitelink2),
+                ],
                 [
                     InlineKeyboardButton(
                         text="🔄 Try Again",
-                        # Construct the URL correctly!
-                        url=f"https://t.me/{client.username}?start={message.command[1] if len(message.command) > 1 else ''}"
+                        # Include original arguments in the URL
+                        url=f"https://t.me/{client.username}?start={message.command[1]}"
                     )
                 ]
+            ]
+            await message.reply(
+                text=FORCE_MSG.format(
+                    first=message.from_user.first_name,
+                    last=message.from_user.last_name,
+                    username='@' + message.from_user.username if message.from_user.username else None,
+                    mention=message.from_user.mention,
+                    id=message.from_user.id
+                ),
+                reply_markup=InlineKeyboardMarkup(buttons),
+                quote=True,
+                disable_web_page_preview=True
             )
-        except Exception as e:
-             print(f"An error occurred: {e}") # Handles unexpected error.
+            return  # Stop processing
 
-        await message.reply(
-            text=FORCE_MSG.format(
-                first=message.from_user.first_name,
-                last=message.from_user.last_name,
-                username='@' + message.from_user.username if message.from_user.username else None,
-                mention=message.from_user.mention,
-                id=message.from_user.id
-            ),
-            reply_markup=InlineKeyboardMarkup(buttons),
-            quote=True,
-            disable_web_page_preview=True
-        )
-        return  # IMPORTANT: Stop processing for unsubscribed users
+        # --- Subscribed, with arguments: Process file request ---
+        if not await present_user(user_id):
+            try:
+                await add_user(user_id)
+            except:
+                pass
 
-    # --- Subscribed Users Logic ---
-    if not await present_user(user_id):
-        try:
-            await add_user(user_id)
-        except:
-            pass
-
-    text = message.text
-    if len(text) > 7:  # Check for /start arguments
-        # --- File Request Handling (Subscribed Users, with Arguments) ---
         try:
             base64_string = text.split(" ", 1)[1]
-        except:
-            return
-        decoded_string = await decode(base64_string)
-        argument = decoded_string.split("-")
+            string = await decode(base64_string)
+            argument = string.split("-")
 
-        if len(argument) == 3:
-            try:
+            if len(argument) == 3:
                 start = int(int(argument[1]) / abs(client.db_channel.id))
                 end = int(int(argument[2]) / abs(client.db_channel.id))
-            except:
-                return
-
-            ids = list(range(start, end + 1)) if start <= end else list(reversed(range(end, start + 1)))
-
-        elif len(argument) == 2:
-            try:
+                ids = range(start, end + 1) if start <= end else list(reversed(range(end, start + 1)))
+            elif len(argument) == 2:
                 ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-            except:
-                return
+            else:
+                return  # Invalid arguments
+        except Exception as e:
+            await message.reply_text(f"Error decoding arguments: {e}")
+            return
 
         temp_msg = await message.reply("⏳ **Fetching your files...** Please wait.")
 
         try:
             messages = await get_messages(client, ids)
-        except:
-            await message.reply_text("❌ **An error occurred while retrieving your files.** Please try again.")
+            await temp_msg.delete()
+
+            for msg in messages:
+                caption = (CUSTOM_CAPTION.format(previouscaption=msg.caption.html if msg.caption else "", filename=msg.document.file_name)
+                           if CUSTOM_CAPTION and msg.document else msg.caption.html if msg.caption else "")
+                reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
+
+                try:
+                    await msg.copy(chat_id=user_id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
+                    await asyncio.sleep(0.5)
+                except FloodWait as e:
+                    await asyncio.sleep(e.x)
+                    await msg.copy(chat_id=user_id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
+                except Exception as e:
+                    print(f"Error copying message: {e}")
+                    pass
             return
 
-        await temp_msg.delete()
+        except Exception as e:
+            await message.reply_text("❌ **An error occurred while retrieving your files.** Please try again.")
+            print(f"Error getting messages: {e}")
+            return
 
-        for msg in messages:
-            caption = (CUSTOM_CAPTION.format(previouscaption=msg.caption.html if msg.caption else "", filename=msg.document.file_name)
-                       if CUSTOM_CAPTION and msg.document else msg.caption.html if msg.caption else "")
-
-            reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
-
-            try:
-                await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
-                await asyncio.sleep(0.5)
-            except FloodWait as e:
-                await asyncio.sleep(e.x)
-                await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
-            except:
-                pass
-        return  # IMPORTANT: Return after handling file request
-
-    else:
-        # --- Default /start Message (Subscribed Users, No Arguments) ---
+    # --- 2. Handle Plain /start (No Arguments) ---
+    else:  # No arguments
+        # Show welcome message (for BOTH subscribed and unsubscribed)
         reply_markup = InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("ℹ️ About", callback_data="about"),
@@ -158,28 +147,22 @@ async def start_command(client: Client, message: Message):
         )
         return
 
-
 # =====================================================================================##
 
 WAIT_MSG = "⏳ **Processing...** Please wait."
-
 REPLY_ERROR = "❌ **Incorrect Usage**\n\nUse this command as a reply to any **Telegram message**."
 
 # =====================================================================================##
-#Removed not_joined function, and callback query handler
+# Remove the not_joined and try_again_callback functions
+
 @Bot.on_message(filters.command('users') & filters.private & filters.user(ADMINS))
 async def get_users(client: Bot, message: Message):
-    """Displays the number of users using the bot"""
-
     msg = await client.send_message(chat_id=message.chat.id, text=WAIT_MSG)
     users = await full_userbase()
     await msg.edit(f"📊 **Total Users:** `{len(users)}`")
 
-
 @Bot.on_message(filters.private & filters.command('broadcast') & filters.user(ADMINS))
 async def send_text(client: Bot, message: Message):
-    """Broadcasts messages to all users"""
-
     if message.reply_to_message:
         query = await full_userbase()
         broadcast_msg = message.reply_to_message
